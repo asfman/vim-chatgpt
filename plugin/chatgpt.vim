@@ -35,19 +35,16 @@ function! DisplayChatGPTResponse(response, ...)
   let bufnr = bufnr('ChatGPTResponse')
   if bufnr == -1
     new ChatGPTResponse
-    let g:chatgpt_window = winnr()
   else
     if bufwinnr(bufnr) != -1
       execute bufwinnr(bufnr) . 'wincmd w'
     else
-      execute g:chatgpt_window . 'wincmd w'
-      execute 'buffer' bufnr
+      execute 'sbuffer' bufnr
     endif
   endif
 
-  setlocal buftype=nofile bufhidden=hide noswapfile nowrap nobuflisted
+  setlocal buftype=nofile bufhidden=hide noswapfile nobuflisted
   setlocal modifiable
-  setlocal wrap
   execute 'setlocal syntax='. original_syntax
 
   if a:0 == 0 " 没有额外参数表示追加内容
@@ -56,6 +53,7 @@ function! DisplayChatGPTResponse(response, ...)
   else
     let last_line = line('$')
     call append(last_line, split(a:response, '\n'))
+    silent! normal! G
   endif
 
   setlocal nomodifiable
