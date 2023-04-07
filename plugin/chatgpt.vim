@@ -95,7 +95,7 @@ function! SendHighlightedCodeToChatGPT(ask, line1, line2, context)
   let save_regtype = getregtype('@')
 
   " Yank the lines between line1 and line2 into the unnamed register
-  execute 'normal! ' . a:line1 . 'G0v' . a:line2 . 'G$y'
+  execute 'normal! ' . a:line1 . 'GV' . a:line2 . 'Gy'
 
   " Send the yanked text to ChatGPT
   let yanked_text = @@
