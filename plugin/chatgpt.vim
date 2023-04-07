@@ -79,7 +79,7 @@ def chat_gpt(prompt):
       max_tokens=max_tokens,
       stop=None,
       temperature=0.7,
-      request_timeout=8
+      request_timeout=12
     )
     result = response.choices[0].message.content.strip()
     vim.command("let g:result = '{}'".format(result.replace("'", "''")))
