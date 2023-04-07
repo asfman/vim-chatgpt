@@ -25,17 +25,46 @@ openai.api_key = os.getenv('CHAT_GPT_KEY') or vim.eval('g:chat_gpt_key')
 EOF
 
 " Function to show ChatGPT responses in a new buffer (improved)
-function! DisplayChatGPTResponse(response)
+function! DisplayChatGPTResponse(response, ...)
+  if a:response == ''
+    return
+  endif
+
   let original_syntax = &syntax
 
-  new
+  let bufnr = bufnr('ChatGPTResponse')
+  if bufnr == -1
+    new ChatGPTResponse
+    let g:chatgpt_window = winnr()
+  else
+    if bufwinnr(bufnr) != -1
+      execute bufwinnr(bufnr) . 'wincmd w'
+    else
+      execute g:chatgpt_window . 'wincmd w'
+      execute 'buffer' bufnr
+    endif
+  endif
+
   setlocal buftype=nofile bufhidden=hide noswapfile nowrap nobuflisted
   setlocal modifiable
+  setlocal wrap
   execute 'setlocal syntax='. original_syntax
 
-  call setline(1, split(a:response, '\n'))
+  if a:0 == 0 " 没有额外参数表示追加内容
+    silent! normal! gg"_dG
+    call setline(1, split(a:response, '\n'))
+  else
+    let last_line = line('$')
+    call append(last_line, split(a:response, '\n'))
+  endif
+
   setlocal nomodifiable
   wincmd p
+endfunction
+
+function! AskChatGPT(prompt)
+  call ChatGPT(a:prompt)
+  call DisplayChatGPTResponse(g:result, 'append')
 endfunction
 
 " Function to interact with ChatGPT
@@ -50,6 +79,7 @@ def chat_gpt(prompt):
       max_tokens=max_tokens,
       stop=None,
       temperature=0.7,
+      request_timeout=8
     )
     result = response.choices[0].message.content.strip()
     vim.command("let g:result = '{}'".format(result.replace("'", "''")))
@@ -133,7 +163,7 @@ function! GenerateCommitMessage()
 endfunction
 "
 " Commands to interact with ChatGPT
-command! -nargs=1 Ask call ChatGPT(<q-args>)
+command! -nargs=1 Ask call AskChatGPT(<q-args>)
 command! -range  -nargs=? Explain call SendHighlightedCodeToChatGPT('explain', <line1>, <line2>, <q-args>)
 command! -range Review call SendHighlightedCodeToChatGPT('review', <line1>, <line2>, '')
 command! -range -nargs=? Rewrite call SendHighlightedCodeToChatGPT('rewrite', <line1>, <line2>, <q-args>)
