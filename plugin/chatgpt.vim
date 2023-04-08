@@ -17,6 +17,11 @@ except ImportError:
     raise
 import vim
 import os
+
+try:
+    vim.eval('g:chat_gpt_max_tokens')
+except:
+    vim.command('let g:chat_gpt_max_tokens=2000')
 EOF
 
 " Set API key
@@ -68,8 +73,9 @@ endfunction
 " Function to interact with ChatGPT
 function! ChatGPT(prompt) abort
   python3 << EOF
-max_tokens = int(vim.eval('g:chat_gpt_max_tokens')) or 2000
 def chat_gpt(prompt):
+  max_tokens = int(vim.eval('g:chat_gpt_max_tokens'))
+
   try:
     response = openai.ChatCompletion.create(
       model="gpt-3.5-turbo",
@@ -77,7 +83,7 @@ def chat_gpt(prompt):
       max_tokens=max_tokens,
       stop=None,
       temperature=0.7,
-      request_timeout=12
+      request_timeout=10
     )
     result = response.choices[0].message.content.strip()
     vim.command("let g:result = '{}'".format(result.replace("'", "''")))
@@ -119,7 +125,11 @@ function! SendHighlightedCodeToChatGPT(ask, line1, line2, context)
     if len(a:context) > 0
       let prompt = 'I have the following code snippet, can you write a test for it, ' . a:context . '?\n' . yanked_text
     endif
-
+  elseif a:ask == 'fix'
+    let prompt = 'I have the following code snippet, it has an error I need you to fix:\n' . yanked_text
+    if len(a:context) > 0
+      let prompt = 'I have the following code snippet I would want you to fix, ' . a:context . ':\n' . yanked_text
+    endif
   endif
 
   call ChatGPT(prompt)
@@ -166,4 +176,5 @@ command! -range  -nargs=? Explain call SendHighlightedCodeToChatGPT('explain', <
 command! -range Review call SendHighlightedCodeToChatGPT('review', <line1>, <line2>, '')
 command! -range -nargs=? Rewrite call SendHighlightedCodeToChatGPT('rewrite', <line1>, <line2>, <q-args>)
 command! -range -nargs=? Test call SendHighlightedCodeToChatGPT('test', <line1>, <line2>, <q-args>)
+command! -range -nargs=? Fix call SendHighlightedCodeToChatGPT('fix', <line1>, <line2>, <q-args>)
 command! GenerateCommit call GenerateCommitMessage()
