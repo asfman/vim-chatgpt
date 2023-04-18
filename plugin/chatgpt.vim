@@ -95,6 +95,33 @@ chat_gpt(vim.eval('a:prompt'))
 EOF
 endfunction
 
+function! ChatGPTTranslate(prompt) abort
+  python3 << EOF
+def chat_gpt(prompt):
+  max_tokens = int(vim.eval('g:chat_gpt_max_tokens'))
+  try:
+    response = openai.ChatCompletion.create(
+      model="gpt-3.5-turbo",
+      messages=[
+        {"role": "system", "content": "You are a translation engine that can only translate text and cannot interpret it."},
+        {"role": "user", "content": "translate from english to chinese"},
+        {"role": "user", "content": prompt.strip()},
+      ],
+      max_tokens=max_tokens,
+      stop=None,
+      temperature=0.7,
+      request_timeout=16
+    )
+    result = response.choices[0].message.content.strip()
+    vim.command("let g:result = '{}'".format(result.replace("'", "''")))
+  except Exception as e:
+    print("Error:", str(e))
+    vim.command("let g:result = ''")
+
+chat_gpt(vim.eval('a:prompt'))
+EOF
+endfunction
+
 function! SendHighlightedCodeToChatGPT(ask, line1, line2, context)
   " Save the current yank register
   let save_reg = @@
@@ -106,33 +133,36 @@ function! SendHighlightedCodeToChatGPT(ask, line1, line2, context)
   " Send the yanked text to ChatGPT
   let yanked_text = @@
 
-  let prompt = 'Do you like my code?\n' . yanked_text
-
-  if a:ask == 'rewrite'
-    let prompt = 'I have the following code snippet, can you rewrite it more idiomatically?\n' . yanked_text
-    if len(a:context) > 0
-      let prompt = 'I have the following code snippet, can you rewrite to' . a:context . '?\n' . yanked_text
+  if a:ask == 'translate'
+    call ChatGPTTranslate(yanked_text)
+  else
+    let prompt = 'Do you like my code?\n' . yanked_text
+    if a:ask == 'rewrite'
+      let prompt = 'I have the following code snippet, can you rewrite it more idiomatically?\n' . yanked_text
+      if len(a:context) > 0
+        let prompt = 'I have the following code snippet, can you rewrite to' . a:context . '?\n' . yanked_text
+      endif
+    elseif a:ask == 'review'
+      let prompt = 'I have the following code snippet, can you provide a code review for?\n' . yanked_text
+    elseif a:ask == 'explain'
+      let prompt = 'I have the following code snippet, can you explain it?\n' . yanked_text
+      if len(a:context) > 0
+        let prompt = 'I have the following code snippet, can you explain, ' . a:context . '?\n' . yanked_text
+      endif
+    elseif a:ask == 'test'
+      let prompt = 'I have the following code snippet, can you write a test for it?\n' . yanked_text
+      if len(a:context) > 0
+        let prompt = 'I have the following code snippet, can you write a test for it, ' . a:context . '?\n' . yanked_text
+      endif
+    elseif a:ask == 'fix'
+      let prompt = 'I have the following code snippet, it has an error I need you to fix:\n' . yanked_text
+      if len(a:context) > 0
+        let prompt = 'I have the following code snippet I would want you to fix, ' . a:context . ':\n' . yanked_text
+      endif
     endif
-  elseif a:ask == 'review'
-    let prompt = 'I have the following code snippet, can you provide a code review for?\n' . yanked_text
-  elseif a:ask == 'explain'
-    let prompt = 'I have the following code snippet, can you explain it?\n' . yanked_text
-    if len(a:context) > 0
-      let prompt = 'I have the following code snippet, can you explain, ' . a:context . '?\n' . yanked_text
-    endif
-  elseif a:ask == 'test'
-    let prompt = 'I have the following code snippet, can you write a test for it?\n' . yanked_text
-    if len(a:context) > 0
-      let prompt = 'I have the following code snippet, can you write a test for it, ' . a:context . '?\n' . yanked_text
-    endif
-  elseif a:ask == 'fix'
-    let prompt = 'I have the following code snippet, it has an error I need you to fix:\n' . yanked_text
-    if len(a:context) > 0
-      let prompt = 'I have the following code snippet I would want you to fix, ' . a:context . ':\n' . yanked_text
-    endif
+    call ChatGPT(prompt)
   endif
 
-  call ChatGPT(prompt)
 
   call DisplayChatGPTResponse(g:result)
   " Restore the original yank register
@@ -173,6 +203,7 @@ endfunction
 " Commands to interact with ChatGPT
 command! -nargs=1 Ask call AskChatGPT(<q-args>)
 command! -range  -nargs=? Explain call SendHighlightedCodeToChatGPT('explain', <line1>, <line2>, <q-args>)
+command! -range Translate call SendHighlightedCodeToChatGPT('translate', <line1>, <line2>, '')
 command! -range Review call SendHighlightedCodeToChatGPT('review', <line1>, <line2>, '')
 command! -range -nargs=? Rewrite call SendHighlightedCodeToChatGPT('rewrite', <line1>, <line2>, <q-args>)
 command! -range -nargs=? Test call SendHighlightedCodeToChatGPT('test', <line1>, <line2>, <q-args>)
